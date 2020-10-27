@@ -1,0 +1,103 @@
+<template>
+  <div class="merge-header-container">
+    <vab-query-form>
+      <vab-query-form-top-panel :span="24">
+        <el-button
+          :loading="downloadLoading"
+          type="primary"
+          @click="handleDownload"
+        >
+          导出
+        </el-button>
+      </vab-query-form-top-panel>
+    </vab-query-form>
+
+    <el-table ref="multipleTable" v-loading="listLoading" :data="list">
+      <el-table-column align="center" label="序号" width="55">
+        <template v-slot="{ $index }">
+          {{ $index + 1 }}
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="Main Information">
+        <el-table-column label="Title">
+          <template v-slot="{ row }">
+            {{ row.title }}
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="Author">
+          <template v-slot="{ row }">
+            <el-tag>{{ row.author }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="Readings">
+          <template v-slot="{ row }">
+            {{ row.pageViews }}
+          </template>
+        </el-table-column>
+      </el-table-column>
+      <el-table-column align="center" label="Date">
+        <template v-slot="{ row }">
+          <span>{{ row.datetime }}</span>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
+</template>
+
+<script>
+  import { getList } from "@/api/table";
+  import { parseTime } from "@/utils";
+
+  export default {
+    name: "ExportMergeHeaderExcel",
+    data() {
+      return {
+        list: [],
+        listLoading: true,
+        downloadLoading: false,
+      };
+    },
+    created() {
+      //防止三级以上路由时多次走created
+      if (this.$route.name === this.$options.name) this.fetchData();
+    },
+    methods: {
+      fetchData() {
+        this.listLoading = true;
+        getList(this.listQuery).then((response) => {
+          this.list = response.data;
+          this.listLoading = false;
+        });
+      },
+      handleDownload() {
+        this.downloadLoading = true;
+        import("@/utils/excel").then((excel) => {
+          const multiHeader = [["Id", "Main Information", "", "", "Date"]];
+          const header = ["", "Title", "Author", "Readings", ""];
+          const filterVal = ["id", "title", "author", "pageViews", "datetime"];
+          const list = this.list;
+          const data = this.formatJson(filterVal, list);
+          const merges = ["A1:A2", "B1:D1", "E1:E2"];
+          excel.export_json_to_excel({
+            multiHeader,
+            header,
+            merges,
+            data,
+          });
+          this.downloadLoading = false;
+        });
+      },
+      formatJson(filterVal, jsonData) {
+        return jsonData.map((v) =>
+          filterVal.map((j) => {
+            if (j === "timestamp") {
+              return parseTime(v[j]);
+            } else {
+              return v[j];
+            }
+          })
+        );
+      },
+    },
+  };
+</script>
